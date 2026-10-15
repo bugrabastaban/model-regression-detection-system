@@ -1,0 +1,32 @@
+# Local environment variables and secrets
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!.env.template
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python bytecode and tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local logs and editor state
+*.log
+.idea/
+.vscode/
+
+# Existing project-specific exclusion
+edge_case_review.md
+README.md

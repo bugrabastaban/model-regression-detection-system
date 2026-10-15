@@ -1,0 +1,122 @@
+{
+  "dataset_version": "judge_smoke_email_002",
+  "input_origin": "manually authored summary variants; no Gemini call",
+  "source_case_id": "email_002",
+  "model": "not_run",
+  "results": [
+    {
+      "case_id": "correct",
+      "output": {
+        "category": "billing",
+        "summary": "The customer reports two identical $29 subscription charges on the 3rd and requests a refund of the extra charge."
+      },
+      "error": null,
+      "elapsed_seconds": 0.0,
+      "scores": {
+        "category_match": 1,
+        "summary_relevance": 5,
+        "latency_seconds": 0.0,
+        "token_usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "status": "scored",
+        "error": null,
+        "judge": {
+          "status": "scored",
+          "model": "openai/gpt-oss-120b",
+          "raw_output": "{\"score\":5,\"reason\":\"Accurately captures the duplicate $29 charges on the 3rd and the request for a refund, matching the email without adding or omitting key details.\"}",
+          "reason": "Accurately captures the duplicate $29 charges on the 3rd and the request for a refund, matching the email without adding or omitting key details.",
+          "latency_seconds": 1.5607536999996228,
+          "token_usage": {
+            "input_tokens": 474,
+            "output_tokens": 211,
+            "total_tokens": 685
+          },
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "incomplete",
+      "output": {
+        "category": "billing",
+        "summary": "The customer reports two identical $29 subscription charges on the 3rd."
+      },
+      "error": null,
+      "elapsed_seconds": 0.0,
+      "scores": {
+        "category_match": 1,
+        "summary_relevance": 3,
+        "latency_seconds": 0.0,
+        "token_usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "status": "scored",
+        "error": null,
+        "judge": {
+          "status": "scored",
+          "model": "openai/gpt-oss-120b",
+          "raw_output": "{\"score\":3,\"reason\":\"Captures the duplicate charge issue but omits the customer's request for a refund, missing an essential part of the request.\"}",
+          "reason": "Captures the duplicate charge issue but omits the customer's request for a refund, missing an essential part of the request.",
+          "latency_seconds": 12.687956499999927,
+          "token_usage": {
+            "input_tokens": 466,
+            "output_tokens": 182,
+            "total_tokens": 648
+          },
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "unrelated",
+      "output": {
+        "category": "billing",
+        "summary": "The customer forgot their password and requests a password reset."
+      },
+      "error": null,
+      "elapsed_seconds": 0.0,
+      "scores": {
+        "category_match": 1,
+        "summary_relevance": 1,
+        "latency_seconds": 0.0,
+        "token_usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "status": "scored",
+        "error": null,
+        "judge": {
+          "status": "scored",
+          "model": "openai/gpt-oss-120b",
+          "raw_output": "{\"score\":1,\"reason\":\"The candidate summary is unrelated, describing a password reset instead of the double charge refund request.\"}",
+          "reason": "The candidate summary is unrelated, describing a password reset instead of the double charge refund request.",
+          "latency_seconds": 12.993975299999875,
+          "token_usage": {
+            "input_tokens": 462,
+            "output_tokens": 101,
+            "total_tokens": 563
+          },
+          "error": null
+        }
+      }
+    }
+  ],
+  "judge_rubric_version": "summary_relevance_v1",
+  "live_test": {
+    "groq_http_attempts": 3,
+    "http_statuses": [
+      200,
+      200,
+      200
+    ],
+    "gemini_requests": 0,
+    "classifier_latency_note": "0.0 is a synthetic placeholder, not a Gemini measurement",
+    "tested_at": "2026-10-14T13:43:34.487181+00:00"
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "prompt_version": "v1",
+  "prompt_timestamp": "2026-10-12T00:00:00+03:00",
+  "dataset_version": "golden_v1",
+  "model": "gemini-3.6-flash",
+  "judge_rubric_version": "summary_relevance_v1",
+  "started_at": "2026-10-15T12:02:46.554506+00:00",
+  "results": [
+    {
+      "case_id": "email_002",
+      "raw_output": "{\"category\":\"billing\",\"summary\":\"The customer is requesting a refund for a duplicate $29.00 charge on her monthly subscription.\"}",
+      "output": {
+        "category": "billing",
+        "summary": "The customer is requesting a refund for a duplicate $29.00 charge on her monthly subscription."
+      },
+      "error": null,
+      "elapsed_seconds": 3.744833099999596,
+      "scores": {
+        "category_match": 1,
+        "summary_relevance": 5,
+        "latency_seconds": 3.744833099999596,
+        "token_usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "status": "scored",
+        "error": null,
+        "judge": {
+          "status": "scored",
+          "model": "openai/gpt-oss-120b",
+          "raw_output": "{\"score\":5,\"reason\":\"Accurately captures the duplicate $29 charge and refund request without adding or omitting key details.\"}",
+          "reason": "Accurately captures the duplicate $29 charge and refund request without adding or omitting key details.",
+          "latency_seconds": 1.0462708999993993,
+          "token_usage": {
+            "input_tokens": 470,
+            "output_tokens": 167,
+            "total_tokens": 637
+          },
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "email_001",
+      "raw_output": "{\"category\":\"technical\",\"summary\":\"The customer reports that the app crashes upon opening on their iPhone 14 after a recent update.\"}",
+      "output": {
+        "category": "technical",
+        "summary": "The customer reports that the app crashes upon opening on their iPhone 14 after a recent update."
+      },
+      "error": null,
+      "elapsed_seconds": 16.69894099999965,
+      "scores": {
+        "category_match": 1,
+        "summary_relevance": 4,
+        "latency_seconds": 16.69894099999965,
+        "token_usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "status": "scored",
+        "error": null,
+        "judge": {
+          "status": "scored",
+          "model": "openai/gpt-oss-120b",
+          "raw_output": "{\"score\":4,\"reason\":\"Captures the crash issue and device details accurately, but omits the explicit request for a fix, a minor omission.\"}",
+          "reason": "Captures the crash issue and device details accurately, but omits the explicit request for a fix, a minor omission.",
+          "latency_seconds": 1.682340500000464,
+          "token_usage": {
+            "input_tokens": 453,
+            "output_tokens": 273,
+            "total_tokens": 726
+          },
+          "error": null
+        }
+      }
+    },
+    {
+      "case_id": "email_091",
+      "raw_output": "{\"category\":\"billing\",\"summary\":\"The customer is requesting a refund after being charged twice for the same month.\"}",
+      "output": {
+        "category": "billing",
+        "summary": "The customer is requesting a refund after being charged twice for the same month."
+      },
+      "error": null,
+      "elapsed_seconds": 11.716607899999872,
+      "scores": {
+        "category_match": 1,
+        "summary_relevance": 5,
+        "latency_seconds": 11.716607899999872,
+        "token_usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "status": "scored",
+        "error": null,
+        "judge": {
+          "status": "scored",
+          "model": "openai/gpt-oss-120b",
+          "raw_output": "{\"score\":5,\"reason\":\"Accurately captures the double charge and refund request without adding or omitting key information.\"}",
+          "reason": "Accurately captures the double charge and refund request without adding or omitting key information.",
+          "latency_seconds": 1.044642400000157,
+          "token_usage": {
+            "input_tokens": 448,
+            "output_tokens": 188,
+            "total_tokens": 636
+          },
+          "error": null
+        }
+      }
+    }
+  ],
+  "live_test": {
+    "report_kind": "consolidated_live_subset",
+    "note": "Successful results collected across two sessions, not a single uninterrupted run. Earlier failed attempts are retained separately.",
+    "gemini_http_attempts": 4,
+    "groq_http_attempts": 3,
+    "events": [
+      {
+        "provider": "gemini",
+        "started_at": "2026-10-15T12:02:47.251507+00:00",
+        "http_status": 200,
+        "finished_at": "2026-10-15T12:02:50.288506+00:00"
+      },
+      {
+        "provider": "groq",
+        "started_at": "2026-10-15T12:02:50.620505+00:00",
+        "http_status": 200,
+        "finished_at": "2026-10-15T12:02:51.345504+00:00"
+      },
+      {
+        "provider": "gemini",
+        "started_at": "2026-10-15T12:03:52.028229+00:00",
+        "http_status": 503,
+        "finished_at": "2026-10-15T12:03:55.680226+00:00"
+      },
+      {
+        "provider": "gemini",
+        "started_at": "2026-10-15T12:13:32.761465+00:00",
+        "http_status": 200,
+        "finished_at": "2026-10-15T12:13:46.529521+00:00"
+      },
+      {
+        "provider": "groq",
+        "started_at": "2026-10-15T12:13:47.150047+00:00",
+        "http_status": 200,
+        "finished_at": "2026-10-15T12:13:48.230037+00:00"
+      },
+      {
+        "provider": "gemini",
+        "started_at": "2026-10-15T12:15:49.154546+00:00",
+        "http_status": 200,
+        "finished_at": "2026-10-15T12:15:59.963545+00:00"
+      },
+      {
+        "provider": "groq",
+        "started_at": "2026-10-15T12:16:00.454547+00:00",
+        "http_status": 200,
+        "finished_at": "2026-10-15T12:16:01.010548+00:00"
+      }
+    ],
+    "requested_ids": [
+      "email_002",
+      "email_001",
+      "email_091"
+    ],
+    "result_sources": {
+      "email_002": "subset_live_20261015T120355716229Z.json",
+      "email_001": "remaining_subset_live_20261015T121601013549Z.json",
+      "email_091": "remaining_subset_live_20261015T121601013549Z.json"
+    },
+    "source_sessions": [
+      {
+        "source_report": "subset_live_20261015T120355716229Z.json",
+        "started_at": "2026-10-15T12:02:46.554506+00:00",
+        "stopped_on_error": true,
+        "minimum_wait_between_cases_seconds": 60
+      },
+      {
+        "source_report": "remaining_subset_live_20261015T121601013549Z.json",
+        "started_at": "2026-10-15T12:13:29.849465+00:00",
+        "stopped_on_error": false,
+        "minimum_wait_between_cases_seconds": 120
+      }
+    ],
+    "earlier_failed_attempts": [
+      {
+        "source_report": "subset_live_20261015T120355716229Z.json",
+        "result": {
+          "case_id": "email_001",
+          "raw_output": null,
+          "output": null,
+          "error": {
+            "type": "ServerError",
+            "message": "503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+          },
+          "elapsed_seconds": 4.357874900000752,
+          "scores": {
+            "category_match": null,
+            "summary_relevance": null,
+            "latency_seconds": 4.357874900000752,
+            "token_usage": {
+              "input_tokens": null,
+              "output_tokens": null,
+              "total_tokens": null
+            },
+            "status": "classifier_error",
+            "error": {
+              "type": "ServerError",
+              "message": "503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+            },
+            "judge": {
+              "status": "skipped",
+              "model": null,
+              "raw_output": null,
+              "reason": null,
+              "latency_seconds": null,
+              "token_usage": {
+                "input_tokens": null,
+                "output_tokens": null,
+                "total_tokens": null
+              },
+              "error": null
+            }
+          }
+        }
+      }
+    ]
+  }
+}

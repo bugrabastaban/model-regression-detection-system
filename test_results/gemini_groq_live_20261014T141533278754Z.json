@@ -1,0 +1,65 @@
+{
+  "prompt_version": "v1",
+  "prompt_timestamp": "2026-10-12T00:00:00+03:00",
+  "dataset_version": "golden_v1",
+  "model": "gemini-3.6-flash",
+  "started_at": "2026-10-14T14:14:31.872246+00:00",
+  "results": [
+    {
+      "case_id": "email_002",
+      "raw_output": null,
+      "output": null,
+      "error": {
+        "type": "ConnectError",
+        "message": "Classifier call failed; see recorded HTTP status."
+      },
+      "elapsed_seconds": 1.4002593000004708,
+      "scores": {
+        "category_match": null,
+        "summary_relevance": null,
+        "latency_seconds": 1.4002593000004708,
+        "token_usage": {
+          "input_tokens": null,
+          "output_tokens": null,
+          "total_tokens": null
+        },
+        "status": "classifier_error",
+        "error": {
+          "type": "ConnectError",
+          "message": "Classifier call failed; see recorded HTTP status."
+        },
+        "judge": {
+          "status": "skipped",
+          "model": null,
+          "raw_output": null,
+          "reason": null,
+          "latency_seconds": null,
+          "token_usage": {
+            "input_tokens": null,
+            "output_tokens": null,
+            "total_tokens": null
+          },
+          "error": null
+        }
+      }
+    }
+  ],
+  "judge_rubric_version": "summary_relevance_v1",
+  "live_test": {
+    "gemini_requests": 1,
+    "groq_requests": 0,
+    "events": [
+      {
+        "provider": "gemini",
+        "started_at": "2026-10-14T14:14:32.914242+00:00",
+        "finished_at": "2026-10-14T14:14:33.186245+00:00"
+      }
+    ],
+    "requested_ids": [
+      "email_002",
+      "email_001",
+      "email_091"
+    ],
+    "safety_stop": true
+  }
+}

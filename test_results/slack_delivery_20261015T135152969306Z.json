@@ -1,0 +1,55 @@
+{
+  "tested_at": "2026-10-15T13:51:52.073308+00:00",
+  "message": {
+    "text": "TEST B?LD?R?M?\nNOT EVALUATED | Model Regression Detection\nKapsam: 3/92 kayıt; değerlendirilebilir: 3; pass: 3.\nMevcut pass oranı: 100.0%; kategori doğruluğu: 100.0%.\nBaseline yok; gerileme, iyileşme ve oran farkı hesaplanamadı.\nOrtalama judge: 4.67/5.\nBaşarılı sonuçlar birden fazla oturumdan birleştirilmiştir; önceki hatalar HTML raporundadır.\nRapor bağlantısı yapılandırılmadı.",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "plain_text",
+          "text": "TEST B?LD?R?M? ? Kaydedilmi? sonu?lar kullan?ld?; yeni Gemini/Groq iste?i yap?lmad?."
+        }
+      },
+      {
+        "type": "header",
+        "text": {
+          "type": "plain_text",
+          "text": "NOT EVALUATED | Model Regression Detection"
+        }
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "plain_text",
+          "text": "Kapsam: 3/92 kayıt; değerlendirilebilir: 3; pass: 3.\nMevcut pass oranı: 100.0%; kategori doğruluğu: 100.0%.\nBaseline yok; gerileme, iyileşme ve oran farkı hesaplanamadı.\nOrtalama judge: 4.67/5.\nBaşarılı sonuçlar birden fazla oturumdan birleştirilmiştir; önceki hatalar HTML raporundadır."
+        }
+      },
+      {
+        "type": "context",
+        "elements": [
+          {
+            "type": "plain_text",
+            "text": "Prompt: v1 | Model: gemini-3.6-flash | Başlangıç: 2026-10-15T12:02:46.554506+00:00 | Veri seti: golden_v1"
+          }
+        ]
+      },
+      {
+        "type": "context",
+        "elements": [
+          {
+            "type": "plain_text",
+            "text": "Rapor bağlantısı henüz yapılandırılmadı; HTML yalnızca yerel dosyada mevcut."
+          }
+        ]
+      }
+    ],
+    "unfurl_links": false,
+    "unfurl_media": false
+  },
+  "gemini_requests": 0,
+  "groq_requests": 0,
+  "delivery": {
+    "delivered": true,
+    "http_status": 200
+  }
+}
