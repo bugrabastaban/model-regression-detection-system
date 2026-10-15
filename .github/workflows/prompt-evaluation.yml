@@ -1,0 +1,157 @@
+name: Prompt evaluation
+
+# Keep a stable required check on every PR. The prepare step skips live calls
+# when prompts/ is unchanged, avoiding a permanently pending path-filter check.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    name: Offline tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+
+  evaluate:
+    name: Prompt evaluation gate
+    needs: offline-tests
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Reservations and live calls are serialized across PRs. Never cancel an
+    # active provider request and then automatically launch its replacement.
+    concurrency:
+      group: gemini-evaluation-quota
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      CI_SAME_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Checkout trusted base code, configuration and baseline
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt
+      - name: Fetch PR commit as data, not executable code
+        if: needs.offline-tests.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, os, subprocess
+          environment = dict(os.environ)
+          environment['GIT_CONFIG_COUNT'] = '1'
+          environment['GIT_CONFIG_KEY_0'] = 'http.https://github.com/.extraheader'
+          credential = base64.b64encode(('x-access-token:' + environment['GH_TOKEN']).encode()).decode()
+          environment['GIT_CONFIG_VALUE_0'] = 'AUTHORIZATION: basic ' + credential
+          subprocess.run(['git', 'fetch', '--no-tags', 'origin', environment['HEAD_SHA']], env=environment, check=True)
+          PY
+      - name: Prepare selected PR prompt
+        if: needs.offline-tests.result == 'success'
+        id: prepare
+        run: python ci_pipeline.py prepare --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
+      - name: Offline failure blocks live evaluation
+        if: needs.offline-tests.result != 'success'
+        run: python ci_pipeline.py mark --message "Offline tests did not pass; no live API calls were made."
+
+      - name: Check rolling 24-hour CI request allowance
+        if: steps.prepare.outputs.ready == 'true'
+        id: budget
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          # Conservative default: one 3-case run per rolling 24 hours. Raise
+          # only after accounting for all other uses of the same API key.
+          CI_DAILY_BUDGET: ${{ vars.GEMINI_CI_DAILY_BUDGET || '3' }}
+        with:
+          script: |
+            const check = require(`${process.env.GITHUB_WORKSPACE}/ci/quota.cjs`);
+            await check({ github, context, core });
+      - name: Reserve requests before any model calls
+        if: steps.budget.outputs.allowed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gemini-reservation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci_output/quota-reservation.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Mark budget exhaustion as incomplete
+        if: steps.prepare.outputs.ready == 'true' && steps.budget.outputs.allowed == 'false'
+        run: python ci_pipeline.py mark --message "CI request budget exhausted; evaluation was not run. This is not a PASS."
+      - name: Run three cases and compare with approved baseline
+        if: steps.budget.outputs.allowed == 'true'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: openai/gpt-oss-120b
+          GOOGLE_GENAI_USE_VERTEXAI: 'false'
+        run: python ci_pipeline.py evaluate
+
+      - name: Normalize missing or interrupted evaluation state
+        if: always()
+        run: python ci_pipeline.py finalize
+      - name: Upload HTML diff and JSON evidence
+        if: always()
+        id: artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: eval-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ci_output/report.html
+            ci_output/scored.json
+            ci_output/comparison.json
+            ci_output/dataset_snapshot.json
+            ci_output/status.json
+            ci_output/summary.md
+          if-no-files-found: error
+          retention-days: 30
+      - name: Update PR summary comment and job summary
+        if: always() && env.CI_SAME_REPOSITORY == 'true'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          REPORT_ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- model-regression-eval -->';
+            const file = 'ci_output/summary.md';
+            let body = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : `${marker}\n## Model evaluation: INCOMPLETE\nWorkflow failed before producing results.`;
+            if (process.env.REPORT_ARTIFACT_URL) body += `\n[Download full HTML diff and JSON results](${process.env.REPORT_ARTIFACT_URL})\n`;
+            await core.summary.addRaw(body).write();
+            const params = { ...context.repo, issue_number: context.issue.number };
+            const comments = await github.paginate(github.rest.issues.listComments, params);
+            const existing = comments.find(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker));
+            if (existing) await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ ...params, body });
+      - name: Optional Slack notification with artifact link
+        if: always() && env.CI_SAME_REPOSITORY == 'true' && steps.artifact.outputs.artifact-url != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          REPORT_ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        run: python -m ci.notify_slack
+      - name: Enforce critical-regression and completeness gate
+        if: always()
+        run: python ci_pipeline.py gate

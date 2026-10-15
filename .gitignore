@@ -26,6 +26,7 @@ htmlcov/
 *.log
 .idea/
 .vscode/
+ci_output/
 
 # Existing project-specific exclusion
 edge_case_review.md

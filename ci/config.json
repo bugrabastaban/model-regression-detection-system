@@ -1,0 +1,16 @@
+{
+  "case_ids": [
+    "email_002",
+    "email_001",
+    "email_091"
+  ],
+  "model": "gemini-3.6-flash",
+  "judge_model": "openai/gpt-oss-120b",
+  "baseline_report": "ci/baseline.json",
+  "baseline_dataset": "ci/baseline_dataset.json",
+  "baseline_prompt_version": "v1",
+  "baseline_prompt_sha256": "8467c861ffea52ab4e3ee5a284426afd15ee0370fdb03ddcc1f4f6c23c2b05da",
+  "request_interval_seconds": 60,
+  "max_gemini_requests": 3,
+  "baseline_prompts_dir": "ci/baseline_prompts"
+}
