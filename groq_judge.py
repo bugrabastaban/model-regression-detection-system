@@ -5,6 +5,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 import httpx
+from pydantic import ValidationError
 
 from scoring import JudgeResult, JudgeScore, TokenUsage
 
@@ -23,7 +24,8 @@ class GroqJudge:
     Environment overrides the project .env. Creating the adapter is offline.
     Calling it sends email and summaries to Groq. A transport can be injected
     for offline tests. Score validation remains in score_results so invalid
-    verdict text and usage are retained in the scoring report.
+    verdict text and valid usage are retained in the scoring report. Malformed
+    usage becomes unknown without discarding the verdict or changing its score.
     """
 
     def __init__(self, *, env_file: str | Path | None = None,
@@ -68,12 +70,18 @@ class GroqJudge:
             content = choice["message"]["content"]
             if not isinstance(content, str) or not content.strip():
                 raise ValueError("Missing content")
-            usage = data.get("usage") or {}
-            return JudgeResult(
-                raw_output=content, model=self.model,
-                token_usage=TokenUsage(input_tokens=usage.get("prompt_tokens"),
-                                       output_tokens=usage.get("completion_tokens"),
-                                       total_tokens=usage.get("total_tokens")),
-            )
         except (ValueError, KeyError, IndexError, TypeError, AttributeError):
             raise GroqJudgeError("Groq returned an invalid or incomplete response envelope.") from None
+
+        # Usage is optional telemetry, independent of the judge's verdict.
+        # As with Gemini, discard all counters if any supplied count is invalid.
+        usage = data.get("usage")
+        token_usage = TokenUsage()
+        if isinstance(usage, dict):
+            try:
+                token_usage = TokenUsage(input_tokens=usage.get("prompt_tokens"),
+                                         output_tokens=usage.get("completion_tokens"),
+                                         total_tokens=usage.get("total_tokens"))
+            except ValidationError:
+                pass
+        return JudgeResult(raw_output=content, model=self.model, token_usage=token_usage)

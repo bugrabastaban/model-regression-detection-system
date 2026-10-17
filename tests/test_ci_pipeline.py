@@ -151,6 +151,47 @@ class CIPipelineTests(IsolatedAsyncioTestCase):
         with patch("sys.argv", ["ci_pipeline.py", "finalize", "--output", str(self.output)]):
             ci.main()
         self.assertEqual(ci.read_json(self.output / "status.json")["status"], "INCOMPLETE")
+        html = (self.output / "report.html").read_text(encoding="utf-8")
+        self.assertIn("<h2>INCOMPLETE</h2>", html)
+        self.assertNotIn("<h2>READY</h2>", html)
+
+    async def test_status_artifacts_follow_ready_to_incomplete_transition(self):
+        ci.save_state(self.output, "READY", "Ready for evaluation")
+        ci.save_state(self.output, "INCOMPLETE", "Evaluation was interrupted")
+        state = ci.read_json(self.output / "status.json")
+        html = (self.output / "report.html").read_text(encoding="utf-8")
+        self.assertIn(f'<h2>{state["status"]}</h2>', html)
+        self.assertIn(state["message"], html)
+        self.assertNotIn("Ready for evaluation", html)
+        self.assertEqual(html.count('aria-label="CI evaluation status"'), 1)
+
+    async def test_status_updates_preserve_full_diff_and_escape_messages(self):
+        await self.evaluate_mocked()
+        path = self.output / "report.html"
+        original = path.read_text(encoding="utf-8")
+        self.assertIn("<svg", original)
+        for status in ("WARN", "FAIL", "INCOMPLETE"):
+            ci.save_state(self.output, status, '<script>unsafe & message</script>')
+            html = path.read_text(encoding="utf-8")
+            self.assertIn(f"<h2>{status}</h2>", html)
+            self.assertIn("<svg", html)
+            self.assertIn("&lt;script&gt;unsafe &amp; message&lt;/script&gt;", html)
+            self.assertNotIn("<script>", html)
+            self.assertEqual(html.count('aria-label="CI evaluation status"'), 1)
+            # Only the marked status banner may change between updates.
+            def without_banner(value):
+                before, _, rest = value.partition("<!-- ci-status:start -->")
+                _, _, after = rest.partition("<!-- ci-status:end -->")
+                return before + after
+            self.assertEqual(without_banner(original), without_banner(html))
+
+    async def test_legacy_placeholder_is_refreshed(self):
+        path = self.output / "report.html"
+        path.write_text('<html><title>Evaluation status</title><h1>READY</h1></html>',
+                        encoding="utf-8")
+        ci.save_state(self.output, "INCOMPLETE", "No evaluation completed")
+        self.assertNotIn("READY", path.read_text(encoding="utf-8"))
+        self.assertIn("INCOMPLETE", path.read_text(encoding="utf-8"))
 
     async def test_workflow_static_contract(self):
         workflow = yaml.load((ROOT / ".github/workflows/prompt-evaluation.yml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader)

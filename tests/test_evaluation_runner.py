@@ -15,10 +15,16 @@ from google.genai.errors import ClientError
 import httpx
 
 from evaluation_runner import run_evaluation
+from email_classifier import _ClassifierResponse
 from prompt_config import load_prompt_config, render_prompt
+from token_usage import TokenUsageResult
 
 
 RAW = ' {"category":"general","summary":"  The customer requests help.  "} '
+
+
+def response(text):
+    return _ClassifierResponse(text=text, usage=TokenUsageResult())
 
 
 class EvaluationRunnerTests(IsolatedAsyncioTestCase):
@@ -31,7 +37,7 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
 
     async def test_all_cases_raw_text_order_metadata_and_no_mutation(self):
         original = deepcopy(self.dataset)
-        with patch("evaluation_runner.classify_email_raw", return_value=RAW) as feature:
+        with patch("evaluation_runner._classify_email_response", return_value=response(RAW)) as feature:
             result = await run_evaluation(self.prompt, self.dataset, model="test-model", batch_size=2)
         self.assertEqual(feature.call_count, 5)
         self.assertEqual(self.dataset, original)
@@ -68,12 +74,12 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
             try:
                 if not release.wait(timeout=5):
                     raise TimeoutError("Test release timed out")
-                return RAW
+                return response(RAW)
             finally:
                 with lock:
                     active -= 1
 
-        with patch("evaluation_runner.classify_email_raw", side_effect=feature):
+        with patch("evaluation_runner._classify_email_response", side_effect=feature):
             task = asyncio.create_task(run_evaluation(self.prompt, self.dataset, batch_size=2))
             try:
                 await asyncio.wait_for(reached.wait(), timeout=3)
@@ -87,20 +93,20 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
         self.assertTrue(all(r["error"] is None for r in result["results"]))
 
     async def test_failures_preserve_raw_outputs_and_continue(self):
-        responses = [ConnectionError("offline failure"), "bad json", None,
-                     '{"category":"other","summary":"Help."}', RAW]
-        with patch("evaluation_runner.classify_email_raw", side_effect=responses) as feature:
+        responses = [ConnectionError("offline failure"), response("bad json"), response(None),
+                     response('{"category":"other","summary":"Help."}'), response(RAW)]
+        with patch("evaluation_runner._classify_email_response", side_effect=responses) as feature:
             report = await run_evaluation(self.prompt, self.dataset, batch_size=1)
         rows = report["results"]
         self.assertEqual(feature.call_count, 5)
         self.assertEqual(rows[0]["error"]["type"], "ConnectionError")
         self.assertEqual(rows[1]["raw_output"], "bad json")
-        self.assertEqual(rows[3]["raw_output"], responses[3])
+        self.assertEqual(rows[3]["raw_output"], responses[3].text)
         self.assertTrue(all(r["error"] and r["output"] is None for r in rows[:4]))
         self.assertIsNone(rows[4]["error"])
 
     async def test_preflight_errors_never_call_feature(self):
-        with patch("evaluation_runner.classify_email_raw") as feature:
+        with patch("evaluation_runner._classify_email_response") as feature:
             for batch_size in (0, -1, True, 1.5):
                 with self.subTest(batch_size=batch_size), self.assertRaises(ValueError):
                     await run_evaluation(self.prompt, self.dataset, batch_size=batch_size)
@@ -112,7 +118,7 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
             feature.assert_not_called()
 
     async def test_empty_dataset(self):
-        with patch("evaluation_runner.classify_email_raw") as feature:
+        with patch("evaluation_runner._classify_email_response") as feature:
             result = await run_evaluation(self.prompt, {"dataset_version": "empty", "cases": []})
         self.assertEqual(result["results"], [])
         feature.assert_not_called()
@@ -120,7 +126,7 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
     async def test_real_dataset_offline(self):
         path = Path(__file__).resolve().parents[1] / "datasets" / "golden_v1.json"
         dataset = json.loads(path.read_text(encoding="utf-8-sig"))
-        with patch("evaluation_runner.classify_email_raw", return_value=RAW) as feature:
+        with patch("evaluation_runner._classify_email_response", return_value=response(RAW)) as feature:
             result = await run_evaluation(self.prompt, dataset)
         self.assertEqual(len(result["results"]), len(dataset["cases"]))
         self.assertEqual(feature.call_count, len(dataset["cases"]))
@@ -134,7 +140,7 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
         def feature(email, **kwargs):
             if email == "Help 0" and not second_parsed.wait(timeout=3):
                 raise TimeoutError("Second result was not parsed")
-            return json.dumps({"category": "general", "summary": email})
+            return response(json.dumps({"category": "general", "summary": email}))
 
         def parse(text):
             result = parse_classifier_output(text)
@@ -143,7 +149,7 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
                 second_parsed.set()
             return result
 
-        with patch("evaluation_runner.classify_email_raw", side_effect=feature), patch(
+        with patch("evaluation_runner._classify_email_response", side_effect=feature), patch(
             "evaluation_runner.parse_classifier_output", side_effect=parse
         ):
             report = await run_evaluation(self.prompt, self.dataset, batch_size=2)
@@ -182,8 +188,12 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
         self.assertIn("ValidationError", rows[3]["error"]["traceback"])
         self.assertIn("category", rows[3]["error"]["traceback"])
         for row in rows:
-            self.assertEqual(set(row), {"case_id", "raw_output", "output", "error", "elapsed_seconds"})
+            self.assertEqual(set(row), {"case_id", "raw_output", "output", "error", "elapsed_seconds",
+                                        "token_usage", "token_usage_error"})
             self.assertGreaterEqual(row["elapsed_seconds"], 0)
+            self.assertEqual(row["token_usage"], {"input_tokens": None, "output_tokens": None,
+                                                 "total_tokens": None})
+            self.assertIsNone(row["token_usage_error"])
         for row in rows[:3]:
             self.assertIsNone(row["raw_output"])
             self.assertIsNone(row["output"])
@@ -197,14 +207,14 @@ class EvaluationRunnerTests(IsolatedAsyncioTestCase):
         json.dumps(report)
 
     async def test_json_error_preserves_underlying_location(self):
-        with patch("evaluation_runner.classify_email_raw", return_value="bad json"):
+        with patch("evaluation_runner._classify_email_response", return_value=response("bad json")):
             report = await run_evaluation(self.prompt, self.dataset)
         for row in report["results"]:
             self.assertIn("JSONDecodeError", row["error"]["traceback"])
             self.assertIn("line 1 column 1", row["error"]["traceback"])
 
     async def test_cancellation_is_not_recorded_as_case_failure(self):
-        with patch("evaluation_runner.classify_email_raw", side_effect=asyncio.CancelledError):
+        with patch("evaluation_runner._classify_email_response", side_effect=asyncio.CancelledError):
             with self.assertRaises(asyncio.CancelledError):
                 await run_evaluation(self.prompt, self.dataset, batch_size=1)
 

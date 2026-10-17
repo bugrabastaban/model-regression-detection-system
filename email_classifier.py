@@ -2,24 +2,34 @@
 
 import json
 import os
+from dataclasses import dataclass
 
 from google import genai
 from pydantic import ValidationError
 
 from contracts import ClassifierOutput
 from prompt_config import load_prompt_config, render_prompt
+from token_usage import TokenUsageResult, extract_gemini_token_usage
 
 
 DEFAULT_PROMPT = render_prompt(load_prompt_config())
 
 
-def classify_email_raw(
+@dataclass(frozen=True)
+class _ClassifierResponse:
+    """Per-call text and usage, independent of output validation."""
+
+    text: str | None
+    usage: TokenUsageResult
+
+
+def _classify_email_response(
     email: str,
     prompt: str = DEFAULT_PROMPT,
     *,
     model: str = "gemini-3.6-flash",
-) -> str | None:
-    """Call the LLM feature and preserve its response text before validation."""
+) -> _ClassifierResponse:
+    """Make one SDK call and retain usage before parsing the response text."""
     for name, value in (("email", email), ("prompt", prompt), ("model", model)):
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"{name} must be a non-empty string.")
@@ -40,7 +50,24 @@ def classify_email_raw(
             },
         )
 
-    return response.text
+    try:
+        metadata = getattr(response, "usage_metadata", None)
+    except Exception:
+        # Reading an SDK property can fail too; never expose its error text.
+        usage = TokenUsageResult(error="invalid_metadata")
+    else:
+        usage = extract_gemini_token_usage(metadata)
+    return _ClassifierResponse(text=response.text, usage=usage)
+
+
+def classify_email_raw(
+    email: str,
+    prompt: str = DEFAULT_PROMPT,
+    *,
+    model: str = "gemini-3.6-flash",
+) -> str | None:
+    """Preserve the public raw-text interface without another SDK request."""
+    return _classify_email_response(email, prompt, model=model).text
 
 
 def parse_classifier_output(text: str | None) -> dict[str, str]:

@@ -2,11 +2,47 @@
 
 from contracts import ClassifierOutput
 from thresholds import ThresholdConfig, assess_comparison
+from pydantic import ValidationError
+from token_usage import TokenUsage
 
 
 PASS_POLICY = "category_match_and_summary_at_least_4_v1"
 CATEGORIES = ("billing", "technical", "account", "general")
 REFERENCE_FIELDS = ("input", "expected_category", "ideal_summary")
+
+
+def _token_counts(row: dict, provider: str) -> dict:
+    """Read optional scored counters, without changing quality eligibility.
+
+    Scored Gemini fields are authoritative; runner fields are a legacy fallback
+    only when the scored token_usage field is absent. Invalid usage is unknown.
+    Judge output errors alone do not discard already captured token usage.
+    """
+    scores = row["scores"]
+    if provider == "gemini":
+        source = scores if "token_usage" in scores else row
+        invalid = source.get("token_usage_error") is not None or row.get("token_usage_error") is not None
+    else:
+        source = scores.get("judge") or {}
+        invalid = source.get("token_usage_error") is not None
+    if invalid:
+        return TokenUsage().model_dump()
+    raw = source.get("token_usage")
+    try:
+        return TokenUsage.model_validate({} if raw is None else raw).model_dump()
+    except ValidationError:
+        return TokenUsage().model_dump()
+
+
+def _token_comparison(previous: dict, current: dict) -> dict:
+    """Per-provider counter deltas, in tokens; no totals or costs are inferred."""
+    result = {}
+    for provider in ("gemini", "groq"):
+        before, after = _token_counts(previous, provider), _token_counts(current, provider)
+        result[provider] = {"previous": before, "current": after, "delta_tokens": {
+            key: after[key] - before[key] if before[key] is not None and after[key] is not None else None
+            for key in before}}
+    return result
 
 
 def _index(report: dict, dataset: dict) -> tuple[dict, dict]:
@@ -86,6 +122,10 @@ def compare_runs(
     are unevaluable. Both runs must be evaluable on the same cases. Category
     accuracy has its own paired denominator and does not require a judge.
     Different/unknown judge rubric or model excludes a pair from pass deltas.
+    Legacy reports without pass_policy use PASS_POLICY. Explicit policies must
+    equal the supported policy; otherwise no deltas are calculated.
+    token_usage_comparisons contains unchanged common cases, independently of
+    quality eligibility. Provider counters/deltas never enter quality decisions.
     """
     if thresholds is None:
         thresholds = ThresholdConfig()
@@ -100,9 +140,26 @@ def compare_runs(
         "added_cases": [], "removed_cases": [], "changed_cases": [],
         "unevaluable_cases": [], "judge_incompatible_cases": [],
         "regressions": [], "improvements": [], "case_changes": [],
+        "token_usage_comparisons": [],
         "overall_pass_rate": _rates([], []),
         "per_category_accuracy": {category: _rates([], []) for category in CATEGORIES},
     }
+    policies = {"current": current.get("pass_policy", PASS_POLICY),
+                "previous": previous.get("pass_policy", PASS_POLICY) if previous is not None else None}
+    compatible = policies["current"] == PASS_POLICY and (
+        previous is None or policies["previous"] == PASS_POLICY)
+    result["pass_policy_compatibility"] = {"compatible": compatible, **policies}
+    if not compatible:
+        result["status"] = "incompatible_pass_policy"
+        if previous is not None:
+            if previous_dataset is None:
+                raise ValueError("The previous run's dataset snapshot is required.")
+            old, _ = _index(previous, previous_dataset)
+            result["previous_case_count"] = len(old)
+        result["coverage"] = {"unchanged_common_cases": 0, "pass_comparable_cases": 0,
+                              "category_comparable_cases": 0}
+        result["threshold_assessment"] = assess_comparison(result, thresholds)
+        return result
     if previous is None:
         result["threshold_assessment"] = assess_comparison(result, thresholds)
         return result
@@ -122,6 +179,8 @@ def compare_runs(
         if changed:
             result["changed_cases"].append({"case_id": case_id, "fields": changed})
             continue
+        result["token_usage_comparisons"].append({
+            "case_id": case_id, **_token_comparison(old[case_id], now[case_id])})
         before = _state(old[case_id], old_refs[case_id])
         after = _state(now[case_id], now_refs[case_id])
         category = now_refs[case_id]["expected_category"]

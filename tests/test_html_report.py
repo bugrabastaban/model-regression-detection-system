@@ -28,6 +28,76 @@ class ReportTests(unittest.TestCase):
         self.assertIn("test-model", html)
         self.assertIn("PASS", html)
 
+    def test_full_coverage_is_independent_of_pass_result(self):
+        current = deepcopy(self.report)
+        current["results"][0]["scores"]["summary_relevance"] = 1
+        html = render_report(current, self.dataset, previous=self.report, previous_dataset=self.dataset)
+        self.assertIn("İşlenen kapsam: Tam kapsam (1 / 1 kayıt)", html)
+        self.assertIn("Değerlendirilebilir kapsam: Tam kapsam (1 / 1 kayıt)", html)
+        self.assertIn("Baseline ile pass karşılaştırması: Tam kapsam (1 / 1 kayıt)", html)
+        self.assertNotIn("Kısmi kapsam", html)
+        self.assertIn("Gerileme: 1", html)
+
+    def test_missing_records_make_coverage_partial_against_supplied_snapshot(self):
+        extra = {**self.dataset["cases"][0], "id": "b"}
+        self.dataset["cases"].append(extra)
+        html = render_report(self.report, self.dataset, previous=self.report, previous_dataset=self.dataset)
+        self.assertIn("İşlenen kapsam: Kısmi kapsam (1 / 2 kayıt)", html)
+        self.assertIn("Değerlendirilebilir kapsam: Kısmi kapsam (1 / 2 kayıt)", html)
+        self.assertIn("Baseline ile pass karşılaştırması: Kısmi kapsam (1 / 2 kayıt)", html)
+
+    def test_unevaluable_records_do_not_reduce_processed_count(self):
+        for failed_side in ("current", "previous"):
+            with self.subTest(failed_side=failed_side):
+                current, previous = deepcopy(self.report), deepcopy(self.report)
+                failed = current if failed_side == "current" else previous
+                failed["results"][0]["scores"]["summary_relevance"] = None
+                html = render_report(current, self.dataset, previous=previous, previous_dataset=self.dataset)
+                self.assertIn("İşlenen kapsam: Tam kapsam (1 / 1 kayıt)", html)
+                evaluable = "Kısmi kapsam (0 / 1 kayıt)" if failed_side == "current" else "Tam kapsam (1 / 1 kayıt)"
+                self.assertIn(f"Değerlendirilebilir kapsam: {evaluable}", html)
+                self.assertIn("Baseline ile pass karşılaştırması: Kısmi kapsam (0 / 1 kayıt)", html)
+
+    def test_full_current_coverage_without_baseline_does_not_claim_comparison(self):
+        html = render_report(self.report, self.dataset)
+        self.assertIn("Değerlendirilebilir kapsam: Tam kapsam (1 / 1 kayıt)", html)
+        self.assertIn("Baseline ile pass karşılaştırması: Baseline yok; hesaplanmadı.", html)
+        self.assertNotIn("Baseline ile pass karşılaştırması: Tam kapsam", html)
+
+    def test_comparison_coverage_uses_existing_eligibility_rules(self):
+        for reason in ("reference", "judge", "policy"):
+            with self.subTest(reason=reason):
+                previous, snapshot = deepcopy(self.report), deepcopy(self.dataset)
+                if reason == "reference":
+                    snapshot["cases"][0]["input"] = "Changed request."
+                elif reason == "judge":
+                    previous["results"][0]["scores"]["judge"]["model"] = "different-judge"
+                else:
+                    previous["pass_policy"] = "unsupported"
+                html = render_report(self.report, self.dataset, previous=previous, previous_dataset=snapshot)
+                if reason == "policy":
+                    self.assertIn("Baseline ile pass karşılaştırması: Pass politikaları uyumsuz; hesaplanmadı.", html)
+                else:
+                    self.assertIn("Baseline ile pass karşılaştırması: Kısmi kapsam (0 / 1 kayıt)", html)
+                self.assertIn("Değerlendirilebilir kapsam: Tam kapsam (1 / 1 kayıt)", html)
+
+    def test_empty_data_does_not_claim_full_coverage(self):
+        current = deepcopy(self.report)
+        current["results"] = []
+        for cases in ([], self.dataset["cases"]):
+            with self.subTest(expected=len(cases)):
+                dataset = {**self.dataset, "cases": cases}
+                html = render_report(current, dataset, previous=current, previous_dataset=dataset)
+                if cases:
+                    self.assertIn("İşlenen kapsam: Kısmi kapsam (0 / 1 kayıt)", html)
+                    self.assertIn("Değerlendirilebilir kapsam: Kısmi kapsam (0 / 1 kayıt)", html)
+                    self.assertIn("Baseline ile pass karşılaştırması: Kısmi kapsam (0 / 1 kayıt)", html)
+                else:
+                    self.assertIn("İşlenen kapsam: Veri yok (0 / 0 kayıt)", html)
+                    self.assertIn("Değerlendirilebilir kapsam: Veri yok (0 / 0 kayıt)", html)
+                    self.assertIn("Baseline ile pass karşılaştırması: Veri yok (0 / 0 kayıt)", html)
+                self.assertNotIn("Tam kapsam", html)
+
     def test_regressed_case_shows_old_and_new(self):
         current = deepcopy(self.report)
         current["started_at"] = "2026-10-15T13:00:00+00:00"
@@ -80,3 +150,53 @@ class ReportTests(unittest.TestCase):
         self.assertIn("tek kesintisiz çalışma değildir", html)
         self.assertIn("HTTP 503", html)
         self.assertEqual(report, before)
+
+    def test_previous_copy_in_history_is_counted_once_with_or_without_run_id(self):
+        for use_id in (False, True):
+            with self.subTest(run_id=use_id):
+                previous = deepcopy(self.report)
+                previous["started_at"] = "2026-10-14T12:00:00+00:00"
+                if use_id:
+                    previous["run_id"] = "previous-run"
+                history = [(deepcopy(previous), deepcopy(self.dataset))]
+                before = deepcopy(history)
+                html = render_report(self.report, self.dataset, previous=previous,
+                                     previous_dataset=self.dataset, history=history)
+                self.assertEqual(html.count("<circle "), 2)
+                self.assertIn("Son 2 karşılaştırılabilir", html)
+                self.assertEqual(history, before)
+
+    def test_duplicate_history_and_current_copies_do_not_fill_trend_window(self):
+        oldest = deepcopy(self.report)
+        oldest["run_id"] = "oldest"
+        oldest["started_at"] = "2026-10-13T12:00:00+00:00"
+        previous = deepcopy(self.report)
+        previous["run_id"] = "previous"
+        previous["started_at"] = "2026-10-14T12:00:00+00:00"
+        self.report["run_id"] = "current"
+        history = [(report, self.dataset) for report in (
+            oldest, previous, deepcopy(previous), deepcopy(self.report))]
+        html = render_report(self.report, self.dataset, previous=previous,
+                             previous_dataset=self.dataset, history=history, last_n=3)
+        self.assertEqual(html.count("<circle "), 3)
+        self.assertIn(f'<li>{oldest["started_at"]}', html)
+        self.assertIn("Son 3 karşılaştırılabilir", html)
+
+    def test_run_id_takes_precedence_over_changed_metadata_in_saved_copy(self):
+        previous = deepcopy(self.report)
+        previous["run_id"] = "previous"
+        previous["started_at"] = "2026-10-14T12:00:00+00:00"
+        copied = deepcopy(previous)
+        copied["prompt_timestamp"] = "additional metadata"
+        html = render_report(self.report, self.dataset, previous=previous,
+                             previous_dataset=self.dataset, history=[(copied, self.dataset)])
+        self.assertEqual(html.count("<circle "), 2)
+
+    def test_incompatible_pass_policy_is_visible_and_excluded_from_trend(self):
+        previous = deepcopy(self.report)
+        previous["started_at"] = "2026-10-14T12:00:00+00:00"
+        previous["pass_policy"] = "category_only_v1"
+        html = render_report(self.report, self.dataset, previous=previous,
+                             previous_dataset=self.dataset)
+        self.assertIn("incompatible_pass_policy", html)
+        self.assertEqual(html.count("<circle "), 1)

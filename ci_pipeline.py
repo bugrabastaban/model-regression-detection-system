@@ -58,15 +58,30 @@ def summary_markdown(state, artifact_url=None):
 
 
 def save_state(output, status, message, **extra):
+    """Refresh the status banner while retaining any generated diff report."""
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     state = {"status": status, "message": message, **extra}
     write_json(output / "status.json", state)
     (output / "summary.md").write_text(summary_markdown(state), encoding="utf-8")
-    if not (output / "report.html").exists():
-        (output / "report.html").write_text(
-            '<!doctype html><html lang="en"><meta charset="utf-8"><title>Evaluation status</title>'
-            f"<h1>{escape(status)}</h1><p>{escape(message)}</p></html>", encoding="utf-8")
+    report_path = output / "report.html"
+    start, end = "<!-- ci-status:start -->", "<!-- ci-status:end -->"
+    banner = (f'{start}<section aria-label="CI evaluation status">'
+              f'<h2>{escape(status)}</h2><p>{escape(message)}</p></section>{end}')
+    html = report_path.read_text(encoding="utf-8") if report_path.exists() else ""
+    if start in html and end in html:
+        before, _, rest = html.partition(start)
+        _, _, after = rest.partition(end)
+        html = before + banner + after
+    elif not html or "<title>Evaluation status</title>" in html:
+        # Replace placeholders produced by older versions as well.
+        html = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+                f'<title>Evaluation status</title></head><body>{banner}</body></html>')
+    else:
+        body = re.search(r"<body\b[^>]*>", html, re.IGNORECASE)
+        position = body.end() if body else 0
+        html = html[:position] + banner + html[position:]
+    report_path.write_text(html, encoding="utf-8")
     return state
 
 

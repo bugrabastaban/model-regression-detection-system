@@ -6,9 +6,11 @@ from pathlib import Path
 from time import perf_counter
 from typing import Awaitable, Callable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from contracts import ClassifierOutput
+# Re-export the shared objects to preserve existing scoring imports.
+from token_usage import TokenUsage, TokenUsageResult, gemini_token_usage
 
 
 JUDGE_RUBRIC_VERSION = "summary_relevance_v1"
@@ -25,15 +27,6 @@ Score with an integer from 1 to 5:
 5: Faithfully captures the main request and all essential context without invented facts.
 Return JSON with exactly score and reason; reason must briefly justify the score.
 """
-
-
-class TokenUsage(BaseModel):
-    """Unknown counts stay null; provider totals need not equal input + output."""
-
-    model_config = ConfigDict(extra="forbid", strict=True)
-    input_tokens: int | None = Field(default=None, ge=0)
-    output_tokens: int | None = Field(default=None, ge=0)
-    total_tokens: int | None = Field(default=None, ge=0)
 
 
 class JudgeScore(BaseModel):
@@ -54,13 +47,15 @@ class JudgeResult(BaseModel):
 Judge = Callable[[str, str], Awaitable[JudgeResult]]
 
 
-def gemini_token_usage(metadata: object | None) -> TokenUsage:
-    """Extract supplied SDK usage metadata offline, without estimating counts."""
-    def value(name):
-        return metadata.get(name) if isinstance(metadata, dict) else getattr(metadata, name, None)
-    return TokenUsage(input_tokens=value("prompt_token_count"),
-                      output_tokens=value("candidates_token_count"),
-                      total_tokens=value("total_token_count"))
+def _row_token_usage(row: dict) -> TokenUsageResult:
+    """Normalize optional runner usage without affecting classifier validity."""
+    if row.get("token_usage_error") is not None:
+        return TokenUsageResult(error="invalid_metadata")
+    raw = row.get("token_usage")
+    try:
+        return TokenUsageResult(token_usage=TokenUsage.model_validate({} if raw is None else raw))
+    except ValidationError:
+        return TokenUsageResult(error="invalid_metadata")
 
 
 async def score_results(report: dict, dataset: dict, *, judge: Judge | None = None) -> dict:
@@ -69,7 +64,9 @@ async def score_results(report: dict, dataset: dict, *, judge: Judge | None = No
     The optional async judge callback is invoked once per valid output, without
     retries. No callback means relevance is explicitly not scored. Token usage
     is read from each runner row's optional token_usage object; older reports
-    without usage retain null counts. All input objects remain unchanged.
+    without usage retain null counts. Malformed usage becomes unknown with a
+    separate token_usage_error; it never changes quality scores. All input
+    objects remain unchanged.
     """
     if report["dataset_version"] != dataset["dataset_version"]:
         raise ValueError("Dataset versions do not match.")
@@ -79,7 +76,7 @@ async def score_results(report: dict, dataset: dict, *, judge: Judge | None = No
     ids = [row["case_id"] for row in report["results"]]
     if len(ids) != len(set(ids)) or not set(ids).issubset(cases):
         raise ValueError("Duplicate or unknown result IDs.")
-    # Validate all references and dimensions before invoking an optional judge.
+    # Validate references and latency before invoking an optional judge.
     for row in report["results"]:
         case = cases[row["case_id"]]
         ClassifierOutput(category=case["expected_category"], summary=case["ideal_summary"])
@@ -88,17 +85,22 @@ async def score_results(report: dict, dataset: dict, *, judge: Judge | None = No
         latency = row["elapsed_seconds"]
         if type(latency) not in (int, float) or not 0 <= latency < float("inf"):
             raise ValueError("Latency must be finite and non-negative.")
-        TokenUsage.model_validate(row.get("token_usage") or {})
 
     scored = deepcopy(report)
     scored["judge_rubric_version"] = JUDGE_RUBRIC_VERSION
     for row in scored["results"]:
         case = cases[row["case_id"]]
+        usage = _row_token_usage(row)
+        # Keep saved JSON safe even if the supplied counters contain NaN or
+        # non-serializable values. Preserve the caller's report via deepcopy.
+        row["token_usage"] = usage.token_usage.model_dump()
+        row["token_usage_error"] = usage.error
         dimensions = {
             "category_match": None,
             "summary_relevance": None,
             "latency_seconds": row["elapsed_seconds"],
-            "token_usage": TokenUsage.model_validate(row.get("token_usage") or {}).model_dump(),
+            "token_usage": usage.token_usage.model_dump(),
+            "token_usage_error": usage.error,
             "status": "classifier_error",
             "error": row.get("error"),
             "judge": {"status": "skipped", "model": None, "raw_output": None,

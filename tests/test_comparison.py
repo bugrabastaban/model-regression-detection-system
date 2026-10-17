@@ -4,7 +4,7 @@ from copy import deepcopy
 import json
 import unittest
 
-from comparison import compare_runs
+from comparison import PASS_POLICY, compare_runs
 
 
 class ComparisonTests(unittest.TestCase):
@@ -131,3 +131,44 @@ class ComparisonTests(unittest.TestCase):
         before = deepcopy((self.current, self.previous, self.dataset))
         json.dumps(self.compare(), allow_nan=False)
         self.assertEqual((self.current, self.previous, self.dataset), before)
+
+    def test_legacy_and_explicit_supported_pass_policies_are_compatible(self):
+        for current_explicit, previous_explicit in ((False, False), (True, False),
+                                                    (False, True), (True, True)):
+            with self.subTest(current=current_explicit, previous=previous_explicit):
+                for report, explicit in ((self.current, current_explicit),
+                                         (self.previous, previous_explicit)):
+                    report.pop("pass_policy", None)
+                    if explicit:
+                        report["pass_policy"] = PASS_POLICY
+                result = self.compare()
+                self.assertEqual(result["status"], "compared")
+                self.assertTrue(result["pass_policy_compatibility"]["compatible"])
+                self.assertEqual(result["overall_pass_rate"]["compared_cases"], 3)
+
+    def test_unsupported_or_invalid_pass_policy_never_produces_deltas(self):
+        for side in ("current", "previous", "both"):
+            for policy in ("category_only_v1", "", None, False, {}):
+                with self.subTest(side=side, policy=policy):
+                    current, previous = deepcopy(self.current), deepcopy(self.previous)
+                    if side in ("current", "both"):
+                        current["pass_policy"] = policy
+                    if side in ("previous", "both"):
+                        previous["pass_policy"] = policy
+                    result = compare_runs(current, previous, current_dataset=self.dataset,
+                                          previous_dataset=self.dataset)
+                    self.assertEqual(result["status"], "incompatible_pass_policy")
+                    self.assertFalse(result["pass_policy_compatibility"]["compatible"])
+                    self.assertIsNone(result["overall_pass_rate"]["delta_percentage_points"])
+                    self.assertEqual(result["threshold_assessment"]["severity"], "not_evaluated")
+                    self.assertEqual(result["regressions"], [])
+                    self.assertEqual(result["improvements"], [])
+                    self.assertEqual(result["coverage"]["pass_comparable_cases"], 0)
+                    self.assertTrue(all(metric["compared_cases"] == 0
+                                        for metric in result["per_category_accuracy"].values()))
+
+    def test_unsupported_baseline_policy_is_explicitly_marked(self):
+        self.current["pass_policy"] = "category_only_v1"
+        result = compare_runs(self.current, current_dataset=self.dataset)
+        self.assertEqual(result["status"], "incompatible_pass_policy")
+        self.assertIsNone(result["overall_pass_rate"]["current_rate"])

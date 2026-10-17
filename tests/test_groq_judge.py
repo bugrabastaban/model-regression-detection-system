@@ -57,6 +57,85 @@ class GroqJudgeTests(IsolatedAsyncioTestCase):
         with patch.dict(os.environ, {'GROQ_MODEL': 'custom-model'}):
             self.assertEqual(GroqJudge(env_file=self.env).model, 'custom-model')
 
+    async def score_response(self, data):
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(200, json=data)
+
+        judge = GroqJudge(env_file=self.env, transport=httpx.MockTransport(handler))
+        dataset = {'dataset_version': 'v1', 'cases': [{'id': 'a', 'input': 'Refund please.',
+                   'expected_category': 'billing', 'ideal_summary': 'A refund is requested.'}]}
+        report = {'dataset_version': 'v1', 'results': [{'case_id': 'a', 'elapsed_seconds': 1,
+                  'error': None, 'output': {'category': 'billing', 'summary': 'A refund is requested.'}}]}
+        result = await score_results(report, dataset, judge=judge)
+        self.assertEqual(len(calls), 1)
+        return result['results'][0]['scores']
+
+    async def test_valid_partial_zero_and_missing_usage_preserve_judge_score(self):
+        variants = [
+            ({'prompt_tokens': 20, 'completion_tokens': 10, 'total_tokens': 37},
+             {'input_tokens': 20, 'output_tokens': 10, 'total_tokens': 37}),
+            ({'prompt_tokens': 0},
+             {'input_tokens': 0, 'output_tokens': None, 'total_tokens': None}),
+            ({'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0},
+             {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}),
+            (None, {'input_tokens': None, 'output_tokens': None, 'total_tokens': None}),
+        ]
+        for usage, expected in variants:
+            with self.subTest(usage=usage):
+                data = self.response()
+                data['usage'] = usage
+                score = await self.score_response(data)
+                self.assertEqual(score['summary_relevance'], 5)
+                self.assertEqual(score['judge']['status'], 'scored')
+                self.assertIsNone(score['judge']['error'])
+                self.assertEqual(score['judge']['token_usage'], expected)
+
+    async def test_negative_usage_preserves_valid_judge_decision(self):
+        for counter in ('prompt_tokens', 'completion_tokens', 'total_tokens'):
+            with self.subTest(counter=counter):
+                data = self.response()
+                data['usage'][counter] = -1
+                score = await self.score_response(data)
+                self.assertEqual(score['summary_relevance'], 5)
+                self.assertEqual(score['judge']['status'], 'scored')
+                self.assertEqual(score['judge']['reason'], 'Faithful.')
+                self.assertIsNone(score['judge']['error'])
+                self.assertEqual(score['judge']['token_usage'],
+                                 dict.fromkeys(('input_tokens', 'output_tokens', 'total_tokens')))
+
+    async def test_malformed_usage_preserves_valid_judge_decision(self):
+        for usage in ([1], 'unexpected', 7, True, {'prompt_tokens': '20'},
+                      {'completion_tokens': False}, {'total_tokens': 1.5},
+                      {'prompt_tokens': {'secret': 'test-secret'}}):
+            with self.subTest(usage=usage):
+                data = self.response()
+                data['usage'] = usage
+                score = await self.score_response(data)
+                self.assertEqual(score['summary_relevance'], 5)
+                self.assertEqual(score['judge']['status'], 'scored')
+                self.assertIsNone(score['judge']['error'])
+                self.assertTrue(all(value is None for value in score['judge']['token_usage'].values()))
+
+    async def test_invalid_verdict_or_envelope_is_not_repaired_by_usage_fallback(self):
+        for content in ('not JSON', '{"score":6,"reason":"Invalid score."}'):
+            with self.subTest(content=content):
+                data = self.response(content)
+                data['usage'] = {'prompt_tokens': -1}
+                score = await self.score_response(data)
+                self.assertIsNone(score['summary_relevance'])
+                self.assertEqual(score['judge']['status'], 'error')
+                self.assertIsNotNone(score['judge']['error'])
+                self.assertEqual(score['judge']['raw_output'], content)
+        data = self.response()
+        data['choices'][0]['finish_reason'] = 'length'
+        data['usage'] = {'prompt_tokens': -1}
+        score = await self.score_response(data)
+        self.assertIsNone(score['summary_relevance'])
+        self.assertEqual(score['judge']['error']['type'], 'GroqJudgeError')
+
     async def test_http_errors_safe_and_not_retried(self):
         for status in (401, 429, 500, 503, 302):
             calls = []
