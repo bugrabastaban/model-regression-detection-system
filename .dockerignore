@@ -1,0 +1,30 @@
+# Secrets and local environments (including nested copies).
+**/.env
+**/.env.*
+**/*.env
+**/*.env.*
+**/.venv
+**/venv
+**/env
+**/ENV
+**/.git
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.coverage
+**/.coverage.*
+**/htmlcov
+**/*.log
+**/.idea
+**/.vscode
+
+# Generated outputs; retain the JSON fixture required by offline tests.
+ci_output/
+test_results/*
+!test_results/combined_subset_live_20261015.json
+PROJECT_STATUS_REPORT.md
+build/
+dist/
+*.egg-info/

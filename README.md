@@ -383,6 +383,65 @@ HTTP testleri FastAPI `TestClient` ve mock sınıflandırıcı kullanır; canlı
 Gemini uyumluluğunu doğrulamaz. `tests/test_classifier.py` yalnızca doğrudan
 çalıştırıldığında gerçek API çağrısı yapan manuel betiktir.
 
+## Docker
+
+Proje kökünde, Linux container engine açıkken PowerShell ile image oluşturun:
+
+```powershell
+docker build -t model-regression-detection-system:local .
+```
+
+Image Python 3.12 kullanır ve mevcut `main:app` uygulamasını Uvicorn ile
+`0.0.0.0:8000` üzerinde başlatır. Uygulama root olmayan `app` kullanıcısıyla
+çalışır. Python modülleri, `prompts/`, `datasets/` ve `ci/` runtime dosyaları
+image'a kopyalanır. FastAPI'nin mevcut varsayılan promptu `v1` olarak kalır.
+
+Önce anahtar sağlamadan, yalnızca HTTP başlangıcını kontrol edebilirsiniz:
+
+```powershell
+docker run --detach --rm --name model-regression-api -p 127.0.0.1:8000:8000 model-regression-detection-system:local
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/docs
+Invoke-RestMethod http://127.0.0.1:8000/openapi.json
+docker stop model-regression-api
+```
+
+Başlangıç ve bu iki GET isteği Gemini, Groq veya Slack çağrısı yapmaz.
+Swagger arayüzünde `POST /classify` çalıştırmak ise gerçek Gemini isteğidir.
+Anahtar olmadan sınıflandırma isteği 503 döner.
+
+Gerçek kullanım için yapılandırmayı container oluşturulurken sağlayın:
+
+```powershell
+docker run --detach --rm --name model-regression-api --env-file .env -p 127.0.0.1:8000:8000 model-regression-detection-system:local
+docker logs model-regression-api
+docker stop model-regression-api
+```
+
+`--env-file .env` dosyayı image'a kopyalamaz; `KEY=value` satırlarını çalışma
+zamanında ortam değişkeni olarak aktarır. Docker env dosyasında değerleri
+tırnaksız yazın; dotenv değişken genişletmesine güvenmeyin. Sınıflandırıcı
+`GEMINI_API_KEY` ve isteğe bağlı `GEMINI_MODEL` kullanır. Judge için
+`GROQ_API_KEY` / `GROQ_MODEL`, Slack için `SLACK_WEBHOOK_URL` ve isteğe bağlı
+`HTML_REPORT_URL` mevcut modüllerce okunur; HTTP endpoint'i judge veya Slack'i
+otomatik çalıştırmaz. Yalnızca gereken değişkenleri içeren yerel bir env
+dosyası sağlayabilirsiniz. Alternatif olarak mevcut PowerShell ortamından
+`--env GEMINI_API_KEY --env GEMINI_MODEL` ile aktarın; anahtarı komuta yazmayın.
+
+`.dockerignore` env dosyalarını, sanal ortamı, Git verilerini, cache'leri ve
+yerel çıktıları build context dışında tutar. Test dosyaları ve testlerin
+kullandığı `test_results/combined_subset_live_20261015.json` fixture'ı context'te
+korunur; runtime image'a testler veya yerel raporlar kopyalanmaz.
+Tam offline paket mevcut yerel komutla çalıştırılır:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
+```
+
+Runtime image test ortamı değildir; tam paket ayrıca CI kota testleri için
+Node.js kullanır. Docker aşaması için image'a ek test bağımlılığı eklenmez.
+Docker engine erişilebilir değilse build ve container endpoint kontrolleri
+doğrulanamaz; yalnızca yerel test başarısı Docker doğrulaması sayılmaz.
+
 ## Async test runner
 
 `run_evaluation` yüklenmiş `PromptConfig` ve golden JSON nesnesini alır.
