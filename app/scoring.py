@@ -8,9 +8,9 @@ from typing import Awaitable, Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from contracts import ClassifierOutput
+from app.contracts import ClassifierOutput
 # Re-export the shared objects to preserve existing scoring imports.
-from token_usage import TokenUsage, TokenUsageResult, gemini_token_usage
+from app.token_usage import TokenUsage, TokenUsageResult, gemini_token_usage
 
 
 JUDGE_RUBRIC_VERSION = "summary_relevance_v1"

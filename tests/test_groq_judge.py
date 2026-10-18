@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import httpx
 
-from groq_judge import DEFAULT_MODEL, GroqJudge, GroqJudgeError
-from scoring import score_results
+from app.groq_judge import DEFAULT_MODEL, GroqJudge, GroqJudgeError
+from app.scoring import score_results
 
 
 class GroqJudgeTests(IsolatedAsyncioTestCase):

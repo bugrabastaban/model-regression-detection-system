@@ -10,10 +10,10 @@ from urllib.parse import urlsplit
 from dotenv import dotenv_values
 import httpx
 
-from comparison import compare_runs
-from html_report import _summary
-from thresholds import ThresholdConfig
-from drift_detection import DriftConfig, detect_slow_drift
+from app.comparison import compare_runs
+from app.html_report import _summary
+from app.thresholds import ThresholdConfig
+from app.drift_detection import DriftConfig, detect_slow_drift
 
 
 class SlackAlertError(RuntimeError):
@@ -111,7 +111,7 @@ def build_slack_message(current: dict, dataset: dict, *, previous: dict | None =
 async def send_slack_alert(payload: dict, *, env_file: str | Path | None = None,
                            transport: httpx.AsyncBaseTransport | None = None) -> dict:
     """Send once, without redirects or retries; ambiguous failures are not retried."""
-    values = dotenv_values(env_file if env_file is not None else Path(__file__).resolve().parent / ".env")
+    values = dotenv_values(env_file if env_file is not None else Path(__file__).resolve().parents[1] / ".env")
     webhook = os.environ.get("SLACK_WEBHOOK_URL", values.get("SLACK_WEBHOOK_URL") or "").strip()
     try:
         url = urlsplit(webhook)
@@ -148,7 +148,7 @@ def main():
         parser.error("--previous and --previous-dataset are required together")
     def read(path):
         return json.loads(path.read_text(encoding="utf-8-sig")) if path else None
-    values = dotenv_values(Path(__file__).resolve().parent / ".env")
+    values = dotenv_values(Path(__file__).resolve().parents[1] / ".env")
     report_url = args.report_url or os.environ.get("HTML_REPORT_URL", values.get("HTML_REPORT_URL"))
     payload = build_slack_message(read(args.report), read(args.dataset), previous=read(args.previous),
                                  previous_dataset=read(args.previous_dataset), report_url=report_url)

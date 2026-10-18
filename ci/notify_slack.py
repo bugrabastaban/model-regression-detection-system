@@ -4,8 +4,8 @@ import asyncio
 import os
 from pathlib import Path
 
-from ci_pipeline import read_json
-from slack_alerts import SlackAlertError, build_slack_message, send_slack_alert
+from ci.pipeline import read_json
+from app.slack_alerts import SlackAlertError, build_slack_message, send_slack_alert
 
 
 async def main():

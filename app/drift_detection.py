@@ -5,8 +5,8 @@ from datetime import datetime
 import math
 from statistics import mean
 
-from comparison import PASS_POLICY, _index, _state, compare_runs
-from thresholds import ThresholdConfig
+from app.comparison import PASS_POLICY, _index, _state, compare_runs
+from app.thresholds import ThresholdConfig
 
 
 @dataclass(frozen=True)

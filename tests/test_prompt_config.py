@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 import yaml
 
-from email_classifier import DEFAULT_PROMPT, classify_email
-from prompt_config import load_prompt, render_prompt
+from app.email_classifier import DEFAULT_PROMPT, classify_email
+from app.prompt_config import load_prompt, render_prompt
 
 
 class PromptConfigTests(unittest.TestCase):
@@ -117,7 +117,7 @@ class ClassifierCompatibilityTests(unittest.TestCase):
         env = patch.dict(os.environ, {"GEMINI_API_KEY": "offline-test-key"})
         env.start()
         self.addCleanup(env.stop)
-        client_patch = patch("email_classifier.genai.Client")
+        client_patch = patch("app.email_classifier.genai.Client")
         self.factory = client_patch.start()
         self.addCleanup(client_patch.stop)
         self.client = self.factory.return_value.__enter__.return_value

@@ -7,8 +7,8 @@ import json
 from pathlib import Path
 from statistics import mean
 
-from comparison import CATEGORIES, _state, _token_counts, compare_runs
-from drift_detection import DriftConfig, detect_slow_drift
+from app.comparison import CATEGORIES, _state, _token_counts, compare_runs
+from app.drift_detection import DriftConfig, detect_slow_drift
 
 
 def _e(value):

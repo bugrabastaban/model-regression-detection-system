@@ -9,7 +9,7 @@ from google.genai.errors import APIError
 import httpx
 
 from main import app
-from email_classifier import DEFAULT_PROMPT
+from app.email_classifier import DEFAULT_PROMPT
 
 
 class ClassifyAPITests(unittest.TestCase):

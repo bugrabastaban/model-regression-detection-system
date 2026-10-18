@@ -1,5 +1,5 @@
 
-from prompt_config import load_prompt_config
+from app.prompt_config import load_prompt_config
 
 config = load_prompt_config()
 

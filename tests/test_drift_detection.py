@@ -5,10 +5,10 @@ from datetime import datetime, timedelta, timezone
 import json
 import unittest
 
-from drift_detection import DriftConfig, detect_slow_drift
-from html_report import render_report
-from slack_alerts import build_slack_message
-from thresholds import ThresholdConfig
+from app.drift_detection import DriftConfig, detect_slow_drift
+from app.html_report import render_report
+from app.slack_alerts import build_slack_message
+from app.thresholds import ThresholdConfig
 
 
 class DriftTests(unittest.TestCase):

@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock
 
 from pydantic import ValidationError
 
-from scoring import JudgeResult, JudgeScore, TokenUsage, gemini_token_usage, score_results, save_scored_results
+from app.scoring import JudgeResult, JudgeScore, TokenUsage, gemini_token_usage, score_results, save_scored_results
 
 
 class ScoringTests(IsolatedAsyncioTestCase):

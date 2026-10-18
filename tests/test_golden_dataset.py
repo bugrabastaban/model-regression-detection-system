@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import unittest
 
-from contracts import ClassifierOutput
+from app.contracts import ClassifierOutput
 
 
 DATASET = Path(__file__).resolve().parents[1] / "datasets" / "golden_v1.json"

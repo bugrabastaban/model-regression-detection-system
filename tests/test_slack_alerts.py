@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import httpx
 
-from slack_alerts import SlackAlertError, build_slack_message, send_slack_alert
-from thresholds import ThresholdConfig
+from app.slack_alerts import SlackAlertError, build_slack_message, send_slack_alert
+from app.thresholds import ThresholdConfig
 
 
 class SlackAlertTests(IsolatedAsyncioTestCase):

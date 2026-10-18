@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from google import genai
 from pydantic import ValidationError
 
-from contracts import ClassifierOutput
-from prompt_config import load_prompt_config, render_prompt
-from token_usage import TokenUsageResult, extract_gemini_token_usage
+from app.contracts import ClassifierOutput
+from app.prompt_config import load_prompt_config, render_prompt
+from app.token_usage import TokenUsageResult, extract_gemini_token_usage
 
 
 DEFAULT_PROMPT = render_prompt(load_prompt_config())

@@ -1,9 +1,9 @@
 """Offline comparison of scored runs over unchanged reference cases."""
 
-from contracts import ClassifierOutput
-from thresholds import ThresholdConfig, assess_comparison
+from app.contracts import ClassifierOutput
+from app.thresholds import ThresholdConfig, assess_comparison
 from pydantic import ValidationError
-from token_usage import TokenUsage
+from app.token_usage import TokenUsage
 
 
 PASS_POLICY = "category_match_and_summary_at_least_4_v1"

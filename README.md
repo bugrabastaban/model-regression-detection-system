@@ -1,15 +1,14 @@
-﻿# Model Regression Detection System
+# Model Regression Detection System
 
-Evaluate LLM prompt and model changes against a versioned golden dataset, compare
-quality with a baseline, and surface regressions through reports and a CI gate.
-The reference feature classifies support emails with Gemini and summarizes each
-email; a separate Groq-hosted judge evaluates summary relevance.
+Evaluate LLM prompt/model changes against a golden dataset and baseline, with
+regression reports and a CI gate. Gemini classifies and summarizes support emails;
+a separate Groq-hosted judge evaluates summary relevance.
 
 ## Key Features
 
-- **Versioned prompts:** YAML configurations with metadata and few-shot examples.
-- **Golden dataset:** 92 reviewed emails across four balanced categories, including
-  ambiguous, short, typo-heavy, mixed-language, and sarcastic inputs.
+- **Versioned YAML prompts** with metadata and few-shot examples.
+- **Golden dataset:** 92 reviewed emails across four balanced categories, with ambiguous,
+  short, typo-heavy, mixed-language, and sarcastic cases.
 - **Bounded async evaluation:** configurable concurrency, ordered results, raw and
   validated outputs, per-case errors, and request latency.
 - **Multi-dimensional scoring:** exact category match and 1–5 summary relevance
@@ -43,8 +42,10 @@ asyncio · YAML/JSON files · unittest · GitHub Actions · Slack webhooks · Do
 
 ## Quick Start
 
-From the repository root in Windows PowerShell, with Python 3.12 installed:
+Source: `app/`; CI: `ci/`; HTTP entry: `main.py`. Tests, prompts, and datasets
+remain in `tests/`, `prompts/`, and `datasets/`.
 
+From the repository root in Windows PowerShell, with Python 3.12 installed:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
@@ -80,7 +81,6 @@ Opening `/docs` or `/openapi.json` does not call a provider. Stop with `Ctrl+C`.
 ## Docker
 
 With Docker's Linux engine running, execute from the repository root:
-
 ```powershell
 docker build -t model-regression-detection-system:local .
 docker run --detach --rm --name model-regression-api --env-file .env -p 127.0.0.1:8000:8000 model-regression-detection-system:local
@@ -95,15 +95,17 @@ into the image. The app runs as non-root; startup makes no provider requests.
 ## Testing
 
 Run the offline suite from the repository root:
-
 ```powershell
 .\.venv\Scripts\python.exe -B -m unittest discover -s tests -v
 ```
 
-The last recorded local run passed **179/179 tests**; tests were not rerun for
-this README edit. Provider responses are mocked. Node.js is needed for the CI
-quota test; that test is skipped when Node.js is unavailable. Do not directly run
-`tests/test_classifier.py` unless you intend to make a live Gemini request.
+Latest local verification: **181/181 tests passed**, with mocked provider calls.
+Node.js is needed for the CI quota test (skipped if unavailable).
+`tests/test_classifier.py` is a manual live-API script, excluded from discovery calls.
+
+Imports use `app.*`. From the repository root, run `python -m app.html_report`
+or `python -m app.slack_alerts` (`--help` lists arguments; Slack sends only with
+`--send`). The `python ci_pipeline.py` CI entry point is preserved.
 
 ## Limitations
 

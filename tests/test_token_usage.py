@@ -7,8 +7,8 @@ import unittest
 
 from pydantic import ValidationError
 
-import scoring
-from token_usage import (TokenUsage, TokenUsageResult, extract_gemini_token_usage,
+from app import scoring
+from app.token_usage import (TokenUsage, TokenUsageResult, extract_gemini_token_usage,
                          gemini_token_usage)
 
 

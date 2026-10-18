@@ -1,6 +1,6 @@
 
 from pydantic import ValidationError
-from contracts import ClassifierOutput
+from app.contracts import ClassifierOutput
 
 # Geçerli çıktı
 valid = ClassifierOutput(

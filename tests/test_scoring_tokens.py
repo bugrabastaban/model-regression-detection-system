@@ -9,12 +9,12 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from comparison import compare_runs
-from drift_detection import detect_slow_drift
-from evaluation_runner import run_evaluation
-from prompt_config import load_prompt_config
-from scoring import JudgeResult, score_results, save_scored_results
-from token_usage import TokenUsage
+from app.comparison import compare_runs
+from app.drift_detection import detect_slow_drift
+from app.evaluation_runner import run_evaluation
+from app.prompt_config import load_prompt_config
+from app.scoring import JudgeResult, score_results, save_scored_results
+from app.token_usage import TokenUsage
 
 
 UNKNOWN = {"input_tokens": None, "output_tokens": None, "total_tokens": None}
@@ -52,7 +52,7 @@ class ScoringTokenTests(IsolatedAsyncioTestCase):
                                                                   total_token_count=20))
 
         with patch.dict(os.environ, {"GEMINI_API_KEY": "offline-key"}), patch(
-            "email_classifier.genai.Client"
+            "app.email_classifier.genai.Client"
         ) as factory:
             client = factory.return_value.__enter__.return_value
             client.models.generate_content.side_effect = generate

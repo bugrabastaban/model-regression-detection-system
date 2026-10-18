@@ -12,13 +12,13 @@ from unittest.mock import patch
 
 import httpx
 
-from comparison import compare_runs
-from drift_detection import detect_slow_drift
-from evaluation_runner import run_evaluation
-from groq_judge import DEFAULT_MODEL, GroqJudge
-from html_report import render_report
-from prompt_config import load_prompt_config
-from scoring import score_results, save_scored_results
+from app.comparison import compare_runs
+from app.drift_detection import detect_slow_drift
+from app.evaluation_runner import run_evaluation
+from app.groq_judge import DEFAULT_MODEL, GroqJudge
+from app.html_report import render_report
+from app.prompt_config import load_prompt_config
+from app.scoring import score_results, save_scored_results
 
 
 UNKNOWN = {"input_tokens": None, "output_tokens": None, "total_tokens": None}
@@ -60,7 +60,7 @@ class TokenPipelineTests(IsolatedAsyncioTestCase):
                                      "GROQ_API_KEY": "offline-groq-key", "GROQ_MODEL": DEFAULT_MODEL}, clear=True)
         env.start()
         self.addCleanup(env.stop)
-        sdk = patch("email_classifier.genai.Client")
+        sdk = patch("app.email_classifier.genai.Client")
         factory = sdk.start()
         self.addCleanup(sdk.stop)
         self.client = factory.return_value.__enter__.return_value

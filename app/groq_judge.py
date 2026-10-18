@@ -7,7 +7,7 @@ from dotenv import dotenv_values
 import httpx
 from pydantic import ValidationError
 
-from scoring import JudgeResult, JudgeScore, TokenUsage
+from app.scoring import JudgeResult, JudgeScore, TokenUsage
 
 
 DEFAULT_MODEL = "openai/gpt-oss-120b"
@@ -30,7 +30,7 @@ class GroqJudge:
 
     def __init__(self, *, env_file: str | Path | None = None,
                  transport: httpx.AsyncBaseTransport | None = None):
-        values = dotenv_values(env_file if env_file is not None else Path(__file__).resolve().parent / ".env")
+        values = dotenv_values(env_file if env_file is not None else Path(__file__).resolve().parents[1] / ".env")
         self._api_key = os.environ.get("GROQ_API_KEY", values.get("GROQ_API_KEY") or "").strip()
         self.model = os.environ.get("GROQ_MODEL", values.get("GROQ_MODEL") or DEFAULT_MODEL).strip()
         if not self._api_key:

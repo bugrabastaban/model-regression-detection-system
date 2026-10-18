@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 from time import perf_counter
 import traceback
 
-from email_classifier import _classify_email_response, parse_classifier_output
-from prompt_config import PromptConfig, render_prompt
-from token_usage import TokenUsageResult
+from app.email_classifier import _classify_email_response, parse_classifier_output
+from app.prompt_config import PromptConfig, render_prompt
+from app.token_usage import TokenUsageResult
 
 
 async def run_evaluation(

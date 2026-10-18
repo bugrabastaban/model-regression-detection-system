@@ -4,7 +4,7 @@ from copy import deepcopy
 import json
 import unittest
 
-from comparison import PASS_POLICY, compare_runs
+from app.comparison import PASS_POLICY, compare_runs
 
 
 class ComparisonTests(unittest.TestCase):

@@ -5,8 +5,8 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
 
-    from email_classifier import classify_email
-    from contracts import ClassifierOutput
+    from app.email_classifier import classify_email
+    from app.contracts import ClassifierOutput
 
     email = "I was charged twice this month."
 

@@ -6,7 +6,7 @@ The separate `Offline tests` job runs on every PR.
 
 ## Initial installation
 
-1. Commit/push this workflow, `ci_pipeline.py`, `ci/`, tests and `.gitignore`
+1. Commit/push this workflow, `ci_pipeline.py`, `app/`, `ci/`, tests and `.gitignore`
    to **main first**. The live job checks out trusted base-branch code, so its
    scripts must already exist on the target branch before testing prompt PRs.
 2. In repository **Settings → Secrets and variables → Actions**, add:

@@ -10,8 +10,8 @@ from google.genai.errors import APIError
 import httpx
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
-from contracts import ClassifierOutput
-from email_classifier import DEFAULT_PROMPT, classify_email
+from app.contracts import ClassifierOutput
+from app.email_classifier import DEFAULT_PROMPT, classify_email
 
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)

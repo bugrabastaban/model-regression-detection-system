@@ -5,8 +5,8 @@ from html.parser import HTMLParser
 import json
 import unittest
 
-from comparison import compare_runs
-from html_report import render_report
+from app.comparison import compare_runs
+from app.html_report import render_report
 
 
 UNKNOWN = {"input_tokens": None, "output_tokens": None, "total_tokens": None}

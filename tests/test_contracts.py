@@ -12,9 +12,9 @@ from unittest.mock import patch
 from pydantic import ValidationError
 import yaml
 
-from contracts import ClassifierOutput
-from email_classifier import classify_email
-from prompt_config import PromptConfig, load_prompt, load_prompt_config, render_prompt
+from app.contracts import ClassifierOutput
+from app.email_classifier import classify_email
+from app.prompt_config import PromptConfig, load_prompt, load_prompt_config, render_prompt
 
 
 class PromptContractTests(unittest.TestCase):
@@ -78,7 +78,7 @@ class OutputContractTests(unittest.TestCase):
 
     def test_classifier_validates_output_and_keeps_dictionary_interface(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "offline-key"}), patch(
-            "email_classifier.genai.Client"
+            "app.email_classifier.genai.Client"
         ) as factory:
             client = factory.return_value.__enter__.return_value
             client.models.generate_content.return_value = SimpleNamespace(

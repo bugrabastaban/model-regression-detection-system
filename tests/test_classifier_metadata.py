@@ -7,12 +7,12 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from contracts import ClassifierOutput
-from email_classifier import (_classify_email_response, classify_email,
+from app.contracts import ClassifierOutput
+from app.email_classifier import (_classify_email_response, classify_email,
                               classify_email_raw, parse_classifier_output)
-from evaluation_runner import run_evaluation
-from prompt_config import load_prompt_config, render_prompt
-from token_usage import TokenUsageResult
+from app.evaluation_runner import run_evaluation
+from app.prompt_config import load_prompt_config, render_prompt
+from app.token_usage import TokenUsageResult
 
 
 OUTPUT = {"category": "billing", "summary": "The customer requests a refund."}
@@ -26,7 +26,7 @@ def mock_sdk(test):
     env = patch.dict(os.environ, {"GEMINI_API_KEY": "offline-key"})
     env.start()
     test.addCleanup(env.stop)
-    sdk = patch("email_classifier.genai.Client")
+    sdk = patch("app.email_classifier.genai.Client")
     factory = sdk.start()
     test.addCleanup(sdk.stop)
     return factory.return_value.__enter__.return_value
@@ -172,7 +172,7 @@ class RunnerMetadataTests(unittest.IsolatedAsyncioTestCase):
             return output
 
         self.client.models.generate_content.side_effect = generate
-        with patch("evaluation_runner.parse_classifier_output", side_effect=parse):
+        with patch("app.evaluation_runner.parse_classifier_output", side_effect=parse):
             report = await run_evaluation(self.prompt, self.dataset, model="test-model", batch_size=2)
         self.assertEqual(completions, ["Email 1", "Email 0"])
         self.assertEqual(self.client.models.generate_content.call_count, 2)

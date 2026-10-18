@@ -3,8 +3,8 @@
 from copy import deepcopy
 import unittest
 
-from comparison import compare_runs
-from thresholds import ThresholdConfig, assess_comparison, classify_delta
+from app.comparison import compare_runs
+from app.thresholds import ThresholdConfig, assess_comparison, classify_delta
 
 
 class ThresholdTests(unittest.TestCase):

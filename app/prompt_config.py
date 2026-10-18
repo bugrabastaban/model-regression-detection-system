@@ -9,10 +9,10 @@ from typing import TypedDict
 
 import yaml
 
-from contracts import ClassifierOutputDict
+from app.contracts import ClassifierOutputDict
 
 
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 DEFAULT_VERSION = "v1"
 CATEGORIES = {"billing", "technical", "account", "general"}
 

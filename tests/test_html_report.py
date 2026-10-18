@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import unittest
 
-from html_report import render_report
+from app.html_report import render_report
 
 
 class ReportTests(unittest.TestCase):

@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock, patch
 
 import yaml
 
-import ci_pipeline as ci
-from prompt_config import load_prompt_config
-from scoring import JudgeResult
+from ci import pipeline as ci
+from app.prompt_config import load_prompt_config
+from app.scoring import JudgeResult
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,14 +52,14 @@ class CIPipelineTests(IsolatedAsyncioTestCase):
                 ci.validate_subset(config, dataset, baseline, self.snapshot)
 
     async def test_no_prompt_change_is_applicable_without_quota(self):
-        with patch("ci_pipeline.git", return_value="") as git:
+        with patch("ci.pipeline.git", return_value="") as git:
             state = ci.prepare(self.output, "a" * 40, "b" * 40)
         self.assertEqual(state["status"], "NOT_APPLICABLE")
         self.assertEqual(git.call_count, 1)
 
     async def test_fork_prompt_changes_block_before_reading_head(self):
         with patch.dict(os.environ, {"CI_SAME_REPOSITORY": "false"}), patch(
-            "ci_pipeline.git", return_value="prompts/v1.yaml\n"
+            "ci.pipeline.git", return_value="prompts/v1.yaml\n"
         ) as git:
             state = ci.prepare(self.output, "a" * 40, "b" * 40)
         self.assertEqual(state["status"], "INCOMPLETE")
@@ -71,7 +71,7 @@ class CIPipelineTests(IsolatedAsyncioTestCase):
         tree = "100644 blob " + "0" * 40 + "\tprompts/v2.yaml\n"
         responses = ["prompts/v2.yaml\n", tree, yaml.safe_dump(config)]
         with patch.dict(os.environ, {"CI_SAME_REPOSITORY": "true"}), patch(
-            "ci_pipeline.git", side_effect=responses
+            "ci.pipeline.git", side_effect=responses
         ):
             state = ci.prepare(self.output, "a" * 40, "b" * 40)
         self.assertEqual(state["status"], "READY")
@@ -81,7 +81,7 @@ class CIPipelineTests(IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             ci.prepare(self.output, "--bad", "b" * 40)
         with patch.dict(os.environ, {"CI_SAME_REPOSITORY": "true"}), patch(
-            "ci_pipeline.git", side_effect=["prompts/v2.yaml", "120000 blob " + "0" * 40 + "\tprompts/v2.yaml"]
+            "ci.pipeline.git", side_effect=["prompts/v2.yaml", "120000 blob " + "0" * 40 + "\tprompts/v2.yaml"]
         ), self.assertRaises(ValueError):
             ci.prepare(self.output, "a" * 40, "b" * 40)
 
@@ -104,9 +104,9 @@ class CIPipelineTests(IsolatedAsyncioTestCase):
                                                   model=self.config["judge_model"]))
         judge.model = self.config["judge_model"]
         with patch.dict(os.environ, {"GEMINI_API_KEY": "offline"}), patch(
-            "ci_pipeline.GroqJudge", return_value=judge
-        ), patch("ci_pipeline.run_evaluation", side_effect=run or self.fake_run) as runner, patch(
-            "ci_pipeline.asyncio.sleep", new_callable=AsyncMock
+            "ci.pipeline.GroqJudge", return_value=judge
+        ), patch("ci.pipeline.run_evaluation", side_effect=run or self.fake_run) as runner, patch(
+            "ci.pipeline.asyncio.sleep", new_callable=AsyncMock
         ) as sleep:
             state = await ci.evaluate(self.output)
         return state, runner, judge, sleep
@@ -121,6 +121,13 @@ class CIPipelineTests(IsolatedAsyncioTestCase):
         self.assertTrue((self.output / "report.html").exists())
         self.assertEqual(len(ci.read_json(self.output / "scored.json")["results"]), 3)
         self.assertTrue(all(call.kwargs["batch_size"] == 1 for call in runner.call_args_list))
+
+    async def test_comparison_artifact_uses_configured_output_directory(self):
+        state, *_ = await self.evaluate_mocked()
+        self.assertEqual(
+            ci.read_json(self.output / "comparison.json"), state["comparison"]
+        )
+        self.assertFalse((self.output / "app.comparison.json").exists())
 
     async def test_critical_blocks_and_summary_has_regressions(self):
         state, *_ = await self.evaluate_mocked(verdict=1)
