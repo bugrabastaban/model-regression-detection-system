@@ -1,3 +1,4 @@
+# Revalidate CI and Slack after the app package migration.
 version_id: v2
 timestamp: "2026-10-17T20:26:47+03:00"
 system_prompt: |
